@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">Loading...</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+        }
+        .result-card {
+            margin-top: 20px;
+            padding: 20px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            background-color: #ffffff;
+        }
+        .result-card h2 {
+            font-size: 1.5em;
+            margin-bottom: 15px;
+        }
+        .highlight {
+            font-weight: bold;
+            color: #28a745;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="share-entity-name">Loading...</h1>
+        <div class="result-card">
+            <h2>Shares Outstanding</h2>
+            <p>Maximum Shares: <span id="share-max-value" class="highlight">Loading...</span> (Fiscal Year: <span id="share-max-fy" class="highlight">Loading...</span>)</p>
+            <p>Minimum Shares: <span id="share-min-value" class="highlight">Loading...</span> (Fiscal Year: <span id="share-min-fy" class="highlight">Loading...</span>)</p>
+        </div>
+    </div>
+
+    <script>
+        const defaultCIK = '0001364742'; // Default CIK for BlackRock
+        const urlParams = new URLSearchParams(window.location.search);
+        const cik = urlParams.get('CIK') || defaultCIK;
+
+        const fetchData = async (cik) => {
+            try {
+                const response = await fetch(`https://data.sec.gov/api/xbrl/companyconcept/CIK${cik}/dei/EntityCommonStockSharesOutstanding.json`, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                const data = await response.json();
+                return data;
+            } catch (error) {
+                console.error('Fetch error:', error);
+                alert('Failed to fetch data. Please try again later.');
+            }
+        };
+
+        const processSharesData = (data) => {
+            const entityName = data.entityName;
+            const units = data.units.shares || [];
+            const filteredShares = units.filter(unit => unit.fy > "2020" && !isNaN(unit.val));
+
+            if (filteredShares.length === 0) {
+                alert('No valid shares data found for the specified CIK.');
+                return;
+            }
+
+            const max = filteredShares.reduce((prev, current) => (prev.val > current.val) ? prev : current);
+            const min = filteredShares.reduce((prev, current) => (prev.val < current.val) ? prev : current);
+
+            const result = {
+                entityName: entityName,
+                max: { val: max.val, fy: max.fy },
+                min: { val: min.val, fy: min.fy }
+            };
+
+            // Updating the HTML with fetched data
+            document.getElementById('page-title').innerText = entityName;
+            document.getElementById('share-entity-name').innerText = entityName;
+            document.getElementById('share-max-value').innerText = max.val;
+            document.getElementById('share-max-fy').innerText = max.fy;
+            document.getElementById('share-min-value').innerText = min.val;
+            document.getElementById('share-min-fy').innerText = min.fy;
+
+            // Save the data to data.json (for demonstration purposes, this won't actually create a file)
+            console.log(JSON.stringify(result, null, 2)); // Replace this with actual file handling in a real app
+        };
+
+        const init = async () => {
+            const data = await fetchData(cik);
+            if (data) {
+                processSharesData(data);
+            }
+        };
+
+        init();
+    </script>
+</body>
+</html>
